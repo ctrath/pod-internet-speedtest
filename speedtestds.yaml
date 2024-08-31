@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: speedtest-ds
+  namespace: default
+  labels:
+    k8s-app: speedtest-ds
+spec:
+  selector:
+    matchLabels:
+      name: speedtest-ds
+  template:
+    metadata:
+      labels:
+        name: speedtest-ds
+    spec:
+      hostNetwork: true
+      containers:
+      - name: speedtest-ds
+        image: registry.access.redhat.com/ubi8/ubi:latest
+        command: ["/bin/sh","-c"]
+        args:
+          - curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | bash;
+            yum -y install speedtest;
+            echo "<<<<< READY!!! >>>>>";
+            sleep infinity;

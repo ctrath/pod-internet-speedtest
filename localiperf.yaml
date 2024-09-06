@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: localiperf-ds
+  namespace: default
+  labels:
+    k8s-app: localiperf-ds
+spec:
+  selector:
+    matchLabels:
+      name: localiperf-ds
+  template:
+    metadata:
+      labels:
+        name: localiperf-ds
+    spec:
+      hostNetwork: true
+      containers:
+      - name: localiperf-ds
+        image: au.icr.io/cale-speedtest/cale-iperf3:latest
+        ports:
+        - containerPort: 5201
+        securityContext:
+          privileged: true
+        command: ["/bin/sh","-c"]
+        args:
+          - iperf3 -s

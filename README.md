@@ -42,3 +42,39 @@ Idle Latency:   138.72 ms   (jitter: 0.12ms, low: 138.60ms, high: 138.82ms)
   ```
 
   Results should be similar for each node.  If not, there is likely an issue with the node or network in which the test was run.
+
+
+  # Running local iperf3 bandwidth test
+  If you don't have internet connectivity to publish registry, you will need to copy the iperf3 container image to the IBM private registry or other private registry your cluster has access to.
+
+  #### Copying iamge to IBM Cloud registry
+  - On your local PC, with either docker or podman present, pull the iperf3 container image to your local registry: `podman pull networkstatic/iperf3:latest --platform=linux/amd64`
+  - Make a new tag of the image with the host and namespace of the repository you will be pushing to: `podman tag docker.io/networkstatic/iperf3:latest au.icr.io/cale-speedtest/cale-iperf3:latest`
+    - In the above example, I am planning to push to the IBM container registry in "au.icr.io" in namespace "cale-speedtest" with image name "cale-iperf3".  Change the registry host, namespace, image name and tag to whatever matches your registry.
+  - If pushing to the IBM container registry, login to the registry from your PC:
+  ```
+  > ibmcloud login
+  > ibmcloud cr login --podman #note: if using docker, change podman to docker
+  ```
+  - If you don't have a registry namespace in your remote registry or want a new namespace for the iperf3 image run: `ibmcloud cr namespace-add cale-speedtest`.  Replace `cale-speedtest` with whatever you want to name your namespace.
+  - Push the image to the remote registry: `podman push au.icr.io/cale-speedtest/cale-iperf3:latest` changing the host, namnespace, image and tagname accordingly.
+  - Check to make sure the image is present in the remote registry.  For the IBM registry run: `ibmcloud cr image-list`
+
+  #### Deploying the iperf3 daemonset
+  - First open localiperf.yaml and edit the `image:` line to reference the image you pushed to your private registry.
+  - Deploy the daemonset: `kubectl apply -f localiperf.yaml`
+  - Wait for the pods to start `kubectl get po -l name=localiperf-ds`
+    - There should be one pod per node.  Wait until all pods are in "Running" status.
+
+  #### Running the iperf3 test
+  - Get a list of all the iperf3 daemonset pods and the associated node in which they reside: `kubectl get po -l name=localiperf-ds -o wide`
+    -  Output should look like:
+```
+❯  kubectl get po -l name=localiperf-ds -o wide
+NAME                  READY   STATUS    RESTARTS   AGE   IP             NODE           NOMINATED NODE   READINESS GATES
+localiperf-ds-kjnvl   1/1     Running   0          22m   10.245.128.4   10.245.128.4   <none>           <none>
+localiperf-ds-p6njb   1/1     Running   0          22m   10.245.128.5   10.245.128.5   <none>           <none>
+localiperf-ds-vrdgl   1/1     Running   0          22m   10.245.128.6   10.245.128.6   <none>           <none>
+```
+  - To test bandwidth between to nodes, run `kubectl exec localiperf-ds-kjnvl -- iperf3 -c 10.245.128.5` where `localiperf-ds-kjnvl` is the pods name for node `10.245.128.4` and `10.245.128.5` is the iperf3 server to connect to.
+    - Note: these pods use host networking, so this is testing the networking bandwidth between the hosts themselves without the pod network.
